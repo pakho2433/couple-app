@@ -20,7 +20,10 @@ exports.notifyPartnerOnMessage = onDocumentCreated(
 
     const recipientSnapshot = await db.doc(`users/${recipientUid}`).get();
     const expoPushToken = recipientSnapshot.data()?.expoPushToken;
-    if (!expoPushToken || !expoPushToken.startsWith('ExponentPushToken')) return;
+    const validToken =
+      typeof expoPushToken === 'string'
+      && /^(ExponentPushToken|ExpoPushToken)\[/.test(expoPushToken);
+    if (!validToken) return;
 
     const isGift = message.type === 'gift';
     const payload = {
