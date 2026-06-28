@@ -8,6 +8,7 @@ import {
   addDoc,
   collection,
   doc,
+  getFirestore,
   limit,
   onSnapshot,
   orderBy,
@@ -16,16 +17,7 @@ import {
   serverTimestamp,
   setDoc,
 } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
-import {
-  getFirestore,
-} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
-import {
-  getMessaging,
-  getToken,
-  isSupported,
-  onMessage,
-} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-messaging.js';
-import { firebaseConfig, vapidKey, publicAppUrl } from './firebase-config.js';
+import { firebaseConfig, publicAppUrl } from './firebase-config.js';
 
 const GIFTS = [
   { emoji: '🌹', name: '玫瑰' },
@@ -40,17 +32,21 @@ const GIFTS = [
 
 const $ = (id) => document.getElementById(id);
 const screens = ['loading-screen', 'config-screen', 'onboarding-screen', 'couple-screen'];
+
 let auth;
 let db;
-let messaging;
-let serviceWorkerRegistration;
 let uid = null;
 let profile = {};
 let members = [];
+let busy = false;
+let activeTab = 'chat';
+let soundEnabled = localStorage.getItem('coupleSound') === '1';
+let audioContext;
+let unreadCount = 0;
+let messagesReady = false;
 let unsubscribeProfile;
 let unsubscribeCouple;
 let unsubscribeMessages;
-let busy = false;
 let toastTimer;
 
 function hasFirebaseConfig() {
@@ -60,7 +56,9 @@ function hasFirebaseConfig() {
 }
 
 function showScreen(id) {
-  for (const screenId of screens) $(screenId).classList.toggle('hidden', screenId !== id);
+  for (const screenId of screens) {
+    $(screenId).classList.toggle('hidden', screenId !== id);
+  }
 }
 
 function setBusy(value) {
@@ -83,7 +81,7 @@ function errorMessage(error) {
   const code = error?.code || '';
   if (code.includes('permission-denied')) return '資料庫權限未設定完成，請部署 Firestore Rules。';
   if (code.includes('auth/operation-not-allowed')) return 'Firebase 尚未啟用 Anonymous 登入。';
-  if (code.includes('auth/unauthorized-domain')) return '請將 pakho2433.github.io 加入 Firebase Authentication 授權網域。';
+  if (code.includes('auth/unauthorized-domain')) return '請將 pakho2433.github.io 加入 Firebase 授權網域。';
   return error?.message || '暫時未能完成，請稍後再試。';
 }
 
@@ -102,17 +100,74 @@ async function perform(task) {
 
 function makePairCode() {
   const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 8 }, () => characters[Math.floor(Math.random() * characters.length)]).join('');
+  return Array.from(
+    { length: 8 },
+    () => characters[Math.floor(Math.random() * characters.length)],
+  ).join('');
 }
 
 function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
 }
 
 function formatTime(timestamp) {
   const date = timestamp?.toDate?.();
   if (!date) return '傳送中…';
   return date.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
+}
+
+function updateSoundButton() {
+  const button = $('sound-button');
+  button.textContent = soundEnabled ? '🔊' : '🔇';
+  button.classList.toggle('enabled', soundEnabled);
+  button.setAttribute('aria-label', soundEnabled ? '關閉訊息提示聲' : '開啟訊息提示聲');
+}
+
+async function playTone() {
+  if (!soundEnabled) return;
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(720, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(940, audioContext.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.14, audioContext.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.22);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.23);
+  } catch (error) {
+    console.warn('Unable to play message tone:', error);
+  }
+}
+
+async function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('coupleSound', soundEnabled ? '1' : '0');
+  updateSoundButton();
+  if (soundEnabled) {
+    await playTone();
+    showToast('App 內訊息提示聲已開啟');
+  } else {
+    showToast('App 內訊息提示聲已關閉');
+  }
+}
+
+function updateUnreadBadge() {
+  const badge = $('unread-badge');
+  badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+  badge.classList.toggle('hidden', unreadCount === 0);
+  document.title = unreadCount > 0 ? `(${unreadCount}) Couple Space` : 'Couple Space';
+}
+
+function clearUnread() {
+  unreadCount = 0;
+  updateUnreadBadge();
 }
 
 function updateComposerState() {
@@ -166,7 +221,9 @@ function renderMessages(items) {
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-state';
-    empty.textContent = members.length === 2 ? '講第一句甜言蜜語啦 💕' : '等待另一半輸入配對碼…';
+    empty.textContent = members.length === 2
+      ? '講第一句甜言蜜語啦 💕'
+      : '等待另一半輸入配對碼…';
     container.append(empty);
     return;
   }
@@ -217,21 +274,54 @@ function renderMessages(items) {
   });
 }
 
+function notifyForNewItems(snapshot) {
+  if (!messagesReady) {
+    messagesReady = true;
+    return;
+  }
+
+  const incoming = snapshot.docChanges()
+    .filter((change) => change.type === 'added')
+    .map((change) => change.doc.data())
+    .filter((item) => item.senderId !== uid);
+
+  if (!incoming.length) return;
+
+  const newest = incoming[incoming.length - 1];
+  const isGift = newest.type === 'gift';
+  const summary = isGift
+    ? `${newest.giftEmoji || '🎁'} 收到「${newest.giftName || '禮物'}」`
+    : `💬 ${String(newest.text || '新訊息').slice(0, 45)}`;
+
+  if (document.hidden || activeTab !== 'chat') {
+    unreadCount += incoming.length;
+    updateUnreadBadge();
+  }
+
+  showToast(summary, 3600);
+  playTone();
+}
+
 function stopCoupleListeners() {
   unsubscribeCouple?.();
   unsubscribeMessages?.();
   unsubscribeCouple = undefined;
   unsubscribeMessages = undefined;
   members = [];
+  messagesReady = false;
 }
 
 function startCoupleListeners(coupleId) {
   stopCoupleListeners();
 
-  unsubscribeCouple = onSnapshot(doc(db, 'couples', coupleId), (snapshot) => {
-    members = snapshot.exists() ? snapshot.data().members || [] : [];
-    updateCoupleHeader();
-  }, (error) => showToast(errorMessage(error), 4200));
+  unsubscribeCouple = onSnapshot(
+    doc(db, 'couples', coupleId),
+    (snapshot) => {
+      members = snapshot.exists() ? snapshot.data().members || [] : [];
+      updateCoupleHeader();
+    },
+    (error) => showToast(errorMessage(error), 4200),
+  );
 
   const messageQuery = query(
     collection(db, 'couples', coupleId, 'messages'),
@@ -239,29 +329,41 @@ function startCoupleListeners(coupleId) {
     limit(100),
   );
 
-  unsubscribeMessages = onSnapshot(messageQuery, (snapshot) => {
-    const items = snapshot.docs.map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }));
-    renderMessages(items);
-  }, (error) => showToast(errorMessage(error), 4200));
+  unsubscribeMessages = onSnapshot(
+    messageQuery,
+    (snapshot) => {
+      const items = snapshot.docs.map((messageDoc) => ({
+        id: messageDoc.id,
+        ...messageDoc.data(),
+      }));
+      renderMessages(items);
+      notifyForNewItems(snapshot);
+    },
+    (error) => showToast(errorMessage(error), 4200),
+  );
 }
 
 function startProfileListener(userId) {
   unsubscribeProfile?.();
-  unsubscribeProfile = onSnapshot(doc(db, 'users', userId), (snapshot) => {
-    const previousCoupleId = profile.coupleId;
-    profile = snapshot.exists() ? snapshot.data() : {};
+  unsubscribeProfile = onSnapshot(
+    doc(db, 'users', userId),
+    (snapshot) => {
+      const previousCoupleId = profile.coupleId;
+      profile = snapshot.exists() ? snapshot.data() : {};
 
-    if (profile.displayName) $('display-name').value = profile.displayName;
+      if (profile.displayName) $('display-name').value = profile.displayName;
 
-    if (profile.coupleId) {
-      showScreen('couple-screen');
-      if (previousCoupleId !== profile.coupleId) startCoupleListeners(profile.coupleId);
-      updateCoupleHeader();
-    } else {
-      stopCoupleListeners();
-      showScreen('onboarding-screen');
-    }
-  }, (error) => showToast(errorMessage(error), 4200));
+      if (profile.coupleId) {
+        showScreen('couple-screen');
+        if (previousCoupleId !== profile.coupleId) startCoupleListeners(profile.coupleId);
+        updateCoupleHeader();
+      } else {
+        stopCoupleListeners();
+        showScreen('onboarding-screen');
+      }
+    },
+    (error) => showToast(errorMessage(error), 4200),
+  );
 }
 
 async function createCouple() {
@@ -326,7 +428,10 @@ async function joinCouple() {
         throw new Error('這個情侶空間已經有兩名成員。');
       }
 
-      const nextMembers = currentMembers.includes(uid) ? currentMembers : [...currentMembers, uid];
+      const nextMembers = currentMembers.includes(uid)
+        ? currentMembers
+        : [...currentMembers, uid];
+
       transaction.update(coupleRef, { members: nextMembers });
       transaction.set(doc(db, 'users', uid), { displayName, coupleId }, { merge: true });
       transaction.delete(codeRef);
@@ -341,6 +446,7 @@ async function sendText(event) {
   if (!text || members.length !== 2 || !profile.coupleId) return;
 
   input.value = '';
+  input.style.height = 'auto';
   updateComposerState();
 
   try {
@@ -373,43 +479,19 @@ async function sendGift(gift) {
 }
 
 function activateTab(name) {
+  activeTab = name;
   const chat = name === 'chat';
   $('chat-tab').classList.toggle('active', chat);
   $('gift-tab').classList.toggle('active', !chat);
   $('chat-panel').classList.toggle('hidden', !chat);
   $('gift-panel').classList.toggle('hidden', chat);
-}
-
-async function enableNotifications() {
-  await perform(async () => {
-    if (!isStandalone()) {
-      $('install-banner').classList.remove('hidden');
-      throw new Error('請先用 Safari「加入主畫面」，再由主畫面開啟 App。');
-    }
-    if (!('Notification' in window)) throw new Error('這部 iPhone 暫時不支援網頁通知。');
-    if (!(await isSupported())) throw new Error('目前瀏覽器不支援 Firebase 背景通知。');
-    if (!vapidKey || vapidKey.includes('__FIREBASE_')) throw new Error('尚未設定 Firebase VAPID Key。');
-
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') throw new Error('你尚未允許通知，可以在 iPhone 設定內重新開啟。');
-
-    messaging ||= getMessaging();
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration,
-    });
-    if (!token) throw new Error('未能取得通知識別碼，請稍後再試。');
-
-    await setDoc(doc(db, 'users', uid), { webPushToken: token }, { merge: true });
-    $('notification-button').textContent = '🔔✓';
-    showToast('即時通知已開啟');
-  });
+  if (chat) clearUnread();
 }
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    serviceWorkerRegistration = await navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' });
+    await navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' });
   } catch (error) {
     console.warn('Service worker registration failed:', error);
   }
@@ -429,6 +511,9 @@ async function shareInvite() {
 
 function bindUi() {
   renderGifts();
+  updateSoundButton();
+  updateUnreadBadge();
+
   $('create-button').addEventListener('click', createCouple);
   $('join-button').addEventListener('click', joinCouple);
   $('join-code').addEventListener('input', (event) => {
@@ -443,15 +528,21 @@ function bindUi() {
   });
   $('chat-tab').addEventListener('click', () => activateTab('chat'));
   $('gift-tab').addEventListener('click', () => activateTab('gift'));
-  $('notification-button').addEventListener('click', enableNotifications);
+  $('sound-button').addEventListener('click', () => toggleSound());
   $('copy-code').addEventListener('click', async () => {
     await navigator.clipboard.writeText(profile.inviteCode || '');
     showToast('配對碼已複製');
   });
-  $('share-code').addEventListener('click', () => shareInvite().catch((error) => showToast(errorMessage(error))));
+  $('share-code').addEventListener('click', () => {
+    shareInvite().catch((error) => showToast(errorMessage(error)));
+  });
   $('dismiss-install').addEventListener('click', () => {
     localStorage.setItem('hideInstallBanner', '1');
     $('install-banner').classList.add('hidden');
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && activeTab === 'chat') clearUnread();
   });
 }
 
@@ -471,15 +562,6 @@ async function bootstrap() {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-
-  if (await isSupported().catch(() => false)) {
-    messaging = getMessaging(app);
-    onMessage(messaging, (payload) => {
-      const title = payload.notification?.title || 'Couple Space';
-      const body = payload.notification?.body || '你有新訊息';
-      showToast(`${title}：${body}`, 4200);
-    });
-  }
 
   onAuthStateChanged(auth, async (user) => {
     try {
