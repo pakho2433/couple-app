@@ -1,1 +1,1 @@
-await import('./app-v11.js?release=11');
+await import('./app-v11.js?release=12');
