@@ -1,22 +1,4 @@
-/* global firebase */
-importScripts('https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/12.0.0/firebase-messaging-compat.js');
-
-const firebaseConfig = {
-  apiKey: '__FIREBASE_API_KEY__',
-  authDomain: '__FIREBASE_AUTH_DOMAIN__',
-  projectId: '__FIREBASE_PROJECT_ID__',
-  storageBucket: '__FIREBASE_STORAGE_BUCKET__',
-  messagingSenderId: '__FIREBASE_MESSAGING_SENDER_ID__',
-  appId: '__FIREBASE_APP_ID__',
-};
-
-if (!firebaseConfig.apiKey.includes('__FIREBASE_')) {
-  firebase.initializeApp(firebaseConfig);
-  firebase.messaging();
-}
-
-const CACHE_NAME = 'couple-space-v1';
+const CACHE_NAME = 'couple-space-free-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -35,7 +17,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
+      ))
       .then(() => self.clients.claim()),
   );
 });
@@ -51,17 +35,8 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html'))),
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((client) => client.url.includes('/couple-app/'));
-      if (existing) return existing.focus();
-      return self.clients.openWindow('./');
-    }),
+      .catch(() => caches.match(event.request).then(
+        (cached) => cached || caches.match('./index.html'),
+      )),
   );
 });
