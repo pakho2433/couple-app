@@ -1,67 +1,72 @@
 # Couple Space 💗
 
-一個只供兩個人使用的私人情侶 App，使用 Expo、React Native 及 Firebase 製作。
+一個只供兩個人使用的私人情侶 App。專案同時保留 Expo 原生版本，並新增可直接用 iPhone Safari 開啟的 PWA 網頁版。
 
-## 已完成的 MVP 功能
+## iPhone 網頁版功能
 
-- 兩部不同 iPhone 各自登入
+- 兩部不同 iPhone 各自使用
 - 8 位一次性情侶配對碼
 - 一對一即時文字聊天
 - 虛擬禮物：玫瑰、奶茶、蛋糕、擁抱券等
 - Firestore 即時同步
-- iPhone 推送通知權限及 Expo Push Token 登記
-- Firebase Cloud Function：有新訊息或禮物時通知另一半
+- 加入 iPhone 主畫面後可申請背景推送通知
+- GitHub Pages 自動部署
 - Firestore 安全規則：只有情侶成員可讀取對話
 
-## 專案技術
+## 部署後網址
 
-- Expo SDK 56 / React Native
-- Firebase Anonymous Authentication
-- Cloud Firestore
-- Firebase Cloud Functions
-- Expo Notifications / EAS Build
-
-## 1. 建立 Firebase 專案
-
-1. 到 Firebase Console 建立一個專案。
-2. 在 **Authentication → Sign-in method** 啟用 **Anonymous**。
-3. 建立 **Cloud Firestore** database。
-4. 在 Firebase 專案新增 Web App，取得 Firebase config。
-5. 將 `.env.example` 複製為 `.env`，填入全部 Firebase 資料。
-
-```bash
-cp .env.example .env
+```text
+https://pakho2433.github.io/couple-app/
 ```
 
-`.env` 範例：
+兩部 iPhone 都使用 Safari 開啟以上網址，再按：
 
-```env
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
-EXPO_PUBLIC_EAS_PROJECT_ID=...
+```text
+分享 → 加入主畫面
 ```
 
-> 不要把 `.env` 上載到 GitHub；專案已在 `.gitignore` 排除它。
+之後由 iPhone 主畫面開啟 Couple Space，即可使用類似普通 App 的全螢幕介面。背景通知必須由主畫面版本開啟及授權。
 
-## 2. 在電腦啟動 App
+## 一次性 Firebase 設定
 
-需要 Node.js 22 或以上。
+GitHub Pages 只負責 App 網址；即時聊天和通知需要 Firebase。
 
-```bash
-npm install
-npx expo start
+1. 在 Firebase Console 建立專案。
+2. Authentication 啟用 **Anonymous** 登入。
+3. 建立 Cloud Firestore。
+4. 新增 Firebase Web App。
+5. Authentication → Settings → Authorized domains，加入：
+
+```text
+pakho2433.github.io
 ```
 
-兩部 iPhone 可先使用 Expo Go 掃描同一個 QR Code，測試配對、聊天及送禮物。完整遠端通知建議使用 EAS development build。
+6. Cloud Messaging → Web Push certificates，產生 VAPID Key。
+7. 在 GitHub repository：
 
-## 3. 部署 Firestore Rules 及通知 Function
+```text
+Settings → Secrets and variables → Actions
+```
+
+加入以下 Repository secrets：
+
+```text
+FIREBASE_API_KEY
+FIREBASE_AUTH_DOMAIN
+FIREBASE_PROJECT_ID
+FIREBASE_STORAGE_BUCKET
+FIREBASE_MESSAGING_SENDER_ID
+FIREBASE_APP_ID
+FIREBASE_VAPID_KEY
+```
+
+Secrets 加入後，執行 GitHub Actions 內的 **Deploy Couple Space PWA**，網站會自動重新部署並注入 Firebase 設定。
+
+## 部署 Firestore Rules 及通知 Function
+
+後端仍需要部署一次：
 
 ```bash
-npm install -g firebase-tools
 firebase login
 firebase use --add
 cd functions
@@ -70,60 +75,26 @@ cd ..
 firebase deploy --only firestore:rules,functions
 ```
 
-Firebase Functions 一般需要 Firebase Blaze 計劃才能部署。
+這一步可以使用 GitHub Codespaces 或其他瀏覽器雲端終端執行，不要求擁有 Mac。
 
-## 4. 建立 iPhone Development Build
+## 專案結構
 
-```bash
-npm install -g eas-cli
-eas login
-eas init
-```
-
-`eas init` 完成後，將產生的 EAS Project ID 填入：
-
-- `.env` 的 `EXPO_PUBLIC_EAS_PROJECT_ID`
-- `app.json` 內 `expo.extra.eas.projectId`
-
-建立 iPhone 測試版本：
-
-```bash
-eas build --profile development --platform ios
-```
-
-正式 App Store / TestFlight 版本：
-
-```bash
-eas build --profile production --platform ios
+```text
+web/                         iPhone PWA 網頁版
+.github/workflows/           GitHub Pages 自動部署
+functions/                   新訊息／禮物通知 Function
+firestore.rules              情侶資料安全規則
+App.tsx                      Expo 原生版本
 ```
 
 ## 使用流程
 
-1. 用戶 A 開啟 App，輸入名稱並按「建立情侶空間」。
+1. 用戶 A 開啟網址，輸入名稱並建立情侶空間。
 2. App 顯示 8 位配對碼。
-3. 用戶 B 在另一部 iPhone 輸入名稱及配對碼。
+3. 用戶 B 在另一部 iPhone 開啟同一網址，輸入名稱及配對碼。
 4. 配對完成後，兩人可即時聊天及送禮物。
-5. App 在背景時，新訊息會經 Cloud Function 發出推送通知。
-
-## 資料結構
-
-```text
-users/{uid}
-couples/{coupleId}
-couples/{coupleId}/messages/{messageId}
-pairCodes/{8位配對碼}
-```
-
-## 下一階段可加入
-
-- 相片及語音訊息
-- 真實語音／視像通話
-- 二人相簿
-- 紀念日及約會提醒
-- 每日心情及情侶問題
-- Apple Sign In
-- 解除配對及刪除帳戶
+5. 兩人將網站加入主畫面並開啟通知後，App 在背景亦可收到新訊息通知。
 
 ## 私隱提醒
 
-目前是 MVP。正式公開前，建議加入私隱政策、封鎖／檢舉機制、帳戶刪除、配對碼有效期，以及更嚴格的 App Check 和後端驗證。
+目前是私人測試 MVP。正式公開前，應加入帳戶刪除、解除配對、配對碼到期、App Check、私隱政策，以及圖片／語音內容管理。
