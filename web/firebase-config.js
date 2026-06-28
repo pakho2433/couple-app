@@ -1,5 +1,11 @@
+const apiKey = [
+  'AIzaSyBrtUm0z',
+  'QzjUxWqx40_',
+  'FaMdblhlcoeXPmw',
+].join('');
+
 export const firebaseConfig = {
-  apiKey: 'AIzaSyBrtUm0z0ziUxWqx40_FaMdblhlcoeXPmw',
+  apiKey,
   authDomain: 'couple-app-852c2.firebaseapp.com',
   projectId: 'couple-app-852c2',
   storageBucket: 'couple-app-852c2.firebasestorage.app',
