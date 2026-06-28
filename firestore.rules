@@ -10,6 +10,22 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
     }
 
+    function validMediaType(data) {
+      return (
+        data.type == 'image'
+        && data.contentType.matches('image/.*')
+        && data.size <= 12 * 1024 * 1024
+      ) || (
+        data.type == 'video'
+        && data.contentType.matches('video/.*')
+        && data.size <= 50 * 1024 * 1024
+      ) || (
+        data.type == 'audio'
+        && data.contentType.matches('audio/.*')
+        && data.size <= 12 * 1024 * 1024
+      );
+    }
+
     match /users/{userId} {
       allow read, create, update: if signedIn() && request.auth.uid == userId;
       allow delete: if false;
@@ -78,16 +94,6 @@ service cloud.firestore {
             )
             || (
               request.resource.data.type in ['image', 'video', 'audio']
-              && request.resource.data.keys().hasOnly([
-                'senderId',
-                'type',
-                'mediaUrl',
-                'storagePath',
-                'contentType',
-                'fileName',
-                'size',
-                'createdAt'
-              ])
               && request.resource.data.mediaUrl is string
               && request.resource.data.mediaUrl.size() > 0
               && request.resource.data.mediaUrl.size() <= 4096
@@ -99,23 +105,29 @@ service cloud.firestore {
               && request.resource.data.fileName.size() <= 255
               && request.resource.data.size is int
               && request.resource.data.size > 0
-              && (
-                (
-                  request.resource.data.type == 'image'
-                  && request.resource.data.contentType.matches('image/.*')
-                  && request.resource.data.size <= 12 * 1024 * 1024
-                )
-                || (
-                  request.resource.data.type == 'video'
-                  && request.resource.data.contentType.matches('video/.*')
-                  && request.resource.data.size <= 50 * 1024 * 1024
-                )
-                || (
-                  request.resource.data.type == 'audio'
-                  && request.resource.data.contentType.matches('audio/.*')
-                  && request.resource.data.size <= 12 * 1024 * 1024
-                )
-              )
+              && validMediaType(request.resource.data)
+              && request.resource.data.keys().hasOnly([
+                'senderId', 'type', 'mediaUrl', 'storagePath', 'contentType',
+                'fileName', 'size', 'createdAt'
+              ])
+            )
+            || (
+              request.resource.data.type in ['image', 'audio']
+              && request.resource.data.mediaData is string
+              && request.resource.data.mediaData.size() > 0
+              && request.resource.data.mediaData.size() <= 780000
+              && request.resource.data.contentType is string
+              && request.resource.data.fileName is string
+              && request.resource.data.fileName.size() > 0
+              && request.resource.data.fileName.size() <= 255
+              && request.resource.data.size is int
+              && request.resource.data.size > 0
+              && request.resource.data.size <= 560 * 1024
+              && validMediaType(request.resource.data)
+              && request.resource.data.keys().hasOnly([
+                'senderId', 'type', 'mediaData', 'contentType',
+                'fileName', 'size', 'createdAt'
+              ])
             )
           );
         allow update, delete: if false;
