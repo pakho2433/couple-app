@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+dist/
+.env
+*.log
+.DS_Store
+functions/node_modules/
+functions/lib/
