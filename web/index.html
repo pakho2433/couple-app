@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e64c7f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Couple Space" />
+  <meta name="description" content="只屬於兩個人的私人情侶空間" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>Couple Space</title>
+</head>
+<body>
+  <main id="app">
+    <section id="loading-screen" class="screen centered">
+      <div class="heart-loader">💗</div>
+      <h1>Couple Space</h1>
+      <p>正在連接二人空間…</p>
+    </section>
+
+    <section id="config-screen" class="screen centered hidden">
+      <div class="logo">⚙️</div>
+      <h1>尚未完成雲端設定</h1>
+      <p class="muted">網址已經可以部署，但要先連接同一個 Firebase 專案，兩部 iPhone 才可以即時聊天。</p>
+      <div class="notice-card">
+        <strong>需要加入 GitHub Secrets：</strong>
+        <span>Firebase Web Config、VAPID Key</span>
+      </div>
+    </section>
+
+    <section id="onboarding-screen" class="screen hidden">
+      <div class="onboarding-card">
+        <div class="logo">💗</div>
+        <h1>Couple Space</h1>
+        <p class="muted">只屬於你哋兩個嘅私人聊天空間</p>
+
+        <label for="display-name">你的名稱</label>
+        <input id="display-name" maxlength="20" autocomplete="nickname" placeholder="例如：Pakho" />
+
+        <button id="create-button" class="primary-button">建立情侶空間</button>
+
+        <div class="divider"><span>或者</span></div>
+
+        <label for="join-code">另一半的 8 位配對碼</label>
+        <input id="join-code" class="code-input" maxlength="8" autocapitalize="characters" placeholder="LOVE5284" />
+        <button id="join-button" class="secondary-button">加入情侶空間</button>
+      </div>
+    </section>
+
+    <section id="couple-screen" class="screen hidden">
+      <header class="app-header">
+        <div>
+          <h1 id="space-title">我哋嘅二人空間 💞</h1>
+          <p id="connection-status" class="status">正在連線…</p>
+        </div>
+        <button id="notification-button" class="icon-button" aria-label="開啟通知">🔔</button>
+      </header>
+
+      <aside id="install-banner" class="install-banner hidden">
+        <div>
+          <strong>加入 iPhone 主畫面</strong>
+          <p>Safari 按分享，再選「加入主畫面」，之後先可開啟背景通知。</p>
+        </div>
+        <button id="dismiss-install" class="text-button">知道</button>
+      </aside>
+
+      <aside id="invite-card" class="invite-card hidden">
+        <span>將配對碼傳給另一半</span>
+        <strong id="invite-code">--------</strong>
+        <div class="invite-actions">
+          <button id="copy-code" class="small-button">複製</button>
+          <button id="share-code" class="small-button">分享</button>
+        </div>
+      </aside>
+
+      <nav class="tabs" aria-label="主要功能">
+        <button id="chat-tab" class="tab active">💬 聊天</button>
+        <button id="gift-tab" class="tab">🎁 送禮物</button>
+      </nav>
+
+      <section id="chat-panel" class="panel chat-panel">
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <form id="message-form" class="composer">
+          <textarea id="message-input" rows="1" maxlength="1000" placeholder="輸入訊息…"></textarea>
+          <button id="send-button" type="submit" class="send-button" aria-label="傳送">➤</button>
+        </form>
+      </section>
+
+      <section id="gift-panel" class="panel gift-panel hidden">
+        <h2>揀一份心意送畀另一半</h2>
+        <div id="gift-grid" class="gift-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="busy-overlay" class="busy-overlay hidden"><div class="spinner"></div></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
