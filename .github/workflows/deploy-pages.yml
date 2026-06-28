@@ -1,0 +1,79 @@
+name: Deploy Couple Space PWA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare site and inject Firebase configuration
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
+        run: |
+          cp -R web _site
+          touch _site/.nojekyll
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          replacements = {
+              '__FIREBASE_API_KEY__': os.getenv('FIREBASE_API_KEY', '').strip(),
+              '__FIREBASE_AUTH_DOMAIN__': os.getenv('FIREBASE_AUTH_DOMAIN', '').strip(),
+              '__FIREBASE_PROJECT_ID__': os.getenv('FIREBASE_PROJECT_ID', '').strip(),
+              '__FIREBASE_STORAGE_BUCKET__': os.getenv('FIREBASE_STORAGE_BUCKET', '').strip(),
+              '__FIREBASE_MESSAGING_SENDER_ID__': os.getenv('FIREBASE_MESSAGING_SENDER_ID', '').strip(),
+              '__FIREBASE_APP_ID__': os.getenv('FIREBASE_APP_ID', '').strip(),
+              '__FIREBASE_VAPID_KEY__': os.getenv('FIREBASE_VAPID_KEY', '').strip(),
+          }
+
+          for filename in ('_site/firebase-config.js', '_site/firebase-messaging-sw.js'):
+              path = Path(filename)
+              content = path.read_text(encoding='utf-8')
+              for placeholder, value in replacements.items():
+                  if value:
+                      content = content.replace(placeholder, value)
+              path.write_text(content, encoding='utf-8')
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

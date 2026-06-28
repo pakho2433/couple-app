@@ -1,0 +1,20 @@
+{
+  "name": "Couple Space",
+  "short_name": "Couple Space",
+  "description": "只屬於兩個人的私人情侶空間",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff8fb",
+  "theme_color": "#e64c7f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
