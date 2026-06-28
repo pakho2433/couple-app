@@ -41,10 +41,10 @@ globalThis.CoupleSpace = {
   media: {},
 };
 
-await import('./core-v11.js?release=11');
-await import('./rooms-v11.js?release=11');
-await import('./chat-v11.js?release=11');
-await import('./media-base-v11.js?release=11');
-await import('./media-image-v11.js?release=11');
-await import('./recorder-v11.js?release=11');
-await import('./bootstrap-v11.js?release=11');
+await import('./core-v11.js?release=12');
+await import('./rooms-v11.js?release=12');
+await import('./chat-v11.js?release=12');
+await import('./media-base-v11.js?release=12');
+await import('./media-image-v11.js?release=12');
+await import('./recorder-v11.js?release=12');
+await import('./bootstrap-v11.js?release=12');
