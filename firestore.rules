@@ -76,6 +76,47 @@ service cloud.firestore {
               && request.resource.data.giftEmoji.size() <= 16
               && request.resource.data.giftName.size() <= 40
             )
+            || (
+              request.resource.data.type in ['image', 'video', 'audio']
+              && request.resource.data.keys().hasOnly([
+                'senderId',
+                'type',
+                'mediaUrl',
+                'storagePath',
+                'contentType',
+                'fileName',
+                'size',
+                'createdAt'
+              ])
+              && request.resource.data.mediaUrl is string
+              && request.resource.data.mediaUrl.size() > 0
+              && request.resource.data.mediaUrl.size() <= 4096
+              && request.resource.data.storagePath is string
+              && request.resource.data.storagePath.matches('couples/' + coupleId + '/' + request.auth.uid + '/.*')
+              && request.resource.data.contentType is string
+              && request.resource.data.fileName is string
+              && request.resource.data.fileName.size() > 0
+              && request.resource.data.fileName.size() <= 255
+              && request.resource.data.size is int
+              && request.resource.data.size > 0
+              && (
+                (
+                  request.resource.data.type == 'image'
+                  && request.resource.data.contentType.matches('image/.*')
+                  && request.resource.data.size <= 12 * 1024 * 1024
+                )
+                || (
+                  request.resource.data.type == 'video'
+                  && request.resource.data.contentType.matches('video/.*')
+                  && request.resource.data.size <= 50 * 1024 * 1024
+                )
+                || (
+                  request.resource.data.type == 'audio'
+                  && request.resource.data.contentType.matches('audio/.*')
+                  && request.resource.data.size <= 12 * 1024 * 1024
+                )
+              )
+            )
           );
         allow update, delete: if false;
       }
