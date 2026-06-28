@@ -8,15 +8,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Couple Space" />
   <meta name="description" content="只屬於兩個人的私人情侶空間" />
-  <link rel="manifest" href="./manifest.webmanifest?release=9" />
+  <link rel="manifest" href="./manifest.webmanifest?release=10" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icon.svg" />
-  <link rel="stylesheet" href="./styles.css?release=9" />
+  <link rel="stylesheet" href="./styles.css?release=10" />
   <title>Couple Space</title>
   <script type="importmap">
     {
       "imports": {
-        "./firebase-config.js": "./firebase-config-v8.js?release=9"
+        "./firebase-config.js": "./firebase-config-v8.js?release=10"
       }
     }
   </script>
@@ -48,10 +48,10 @@
     <section id="config-screen" class="screen centered hidden">
       <div class="logo">⚙️</div>
       <h1>尚未連接 Firebase</h1>
-      <p class="muted">免費版只需要 Firebase Web Config，不需要信用卡、VAPID Key 或 Cloud Function。</p>
+      <p class="muted">請檢查 Firebase Web Config、Authentication、Firestore 及 Storage 設定。</p>
       <div class="notice-card">
         <strong>需要加入 Firebase Web App 設定</strong>
-        <span>完成後兩部 iPhone 就可以即時聊天。</span>
+        <span>完成後兩部 iPhone 就可以即時聊天、傳圖片、錄音及影片。</span>
       </div>
     </section>
 
@@ -103,7 +103,21 @@
 
       <section id="chat-panel" class="panel chat-panel">
         <div id="messages" class="messages" aria-live="polite"></div>
+
+        <div id="recording-panel" class="recording-panel hidden" role="status">
+          <span class="recording-dot" aria-hidden="true"></span>
+          <strong>錄音中</strong>
+          <span id="recording-time">00:00</span>
+          <div class="recording-actions">
+            <button id="cancel-recording" type="button" class="recording-cancel">取消</button>
+            <button id="send-recording" type="button" class="recording-send">傳送</button>
+          </div>
+        </div>
+
         <form id="message-form" class="composer">
+          <button id="media-button" type="button" class="composer-action" aria-label="傳送圖片或影片">＋</button>
+          <input id="media-input" type="file" accept="image/*,video/*" hidden />
+          <button id="record-button" type="button" class="composer-action" aria-label="開始錄音">🎤</button>
           <textarea id="message-input" rows="1" maxlength="1000" placeholder="輸入訊息…"></textarea>
           <button id="send-button" type="submit" class="send-button" aria-label="傳送">➤</button>
         </form>
@@ -115,8 +129,14 @@
       </section>
     </section>
   </main>
+
+  <div id="media-viewer" class="media-viewer hidden" role="dialog" aria-modal="true" aria-label="圖片預覽">
+    <button id="close-media-viewer" type="button" class="viewer-close" aria-label="關閉圖片">×</button>
+    <img id="viewer-image" alt="聊天圖片" />
+  </div>
+
   <div id="toast" class="toast hidden" role="status"></div>
   <div id="busy-overlay" class="busy-overlay hidden"><div class="spinner"></div></div>
-  <script type="module" src="./app.js?release=9"></script>
+  <script type="module" src="./app.js?release=10"></script>
 </body>
 </html>
