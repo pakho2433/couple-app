@@ -24,11 +24,11 @@
 
     <section id="config-screen" class="screen centered hidden">
       <div class="logo">⚙️</div>
-      <h1>尚未完成雲端設定</h1>
-      <p class="muted">網址已經可以部署，但要先連接同一個 Firebase 專案，兩部 iPhone 才可以即時聊天。</p>
+      <h1>尚未連接 Firebase</h1>
+      <p class="muted">免費版只需要 Firebase Web Config，不需要信用卡、VAPID Key 或 Cloud Function。</p>
       <div class="notice-card">
-        <strong>需要加入 GitHub Secrets：</strong>
-        <span>Firebase Web Config、VAPID Key</span>
+        <strong>需要加入 Firebase Web App 設定</strong>
+        <span>完成後兩部 iPhone 就可以即時聊天。</span>
       </div>
     </section>
 
@@ -37,14 +37,10 @@
         <div class="logo">💗</div>
         <h1>Couple Space</h1>
         <p class="muted">只屬於你哋兩個嘅私人聊天空間</p>
-
         <label for="display-name">你的名稱</label>
         <input id="display-name" maxlength="20" autocomplete="nickname" placeholder="例如：Pakho" />
-
         <button id="create-button" class="primary-button">建立情侶空間</button>
-
         <div class="divider"><span>或者</span></div>
-
         <label for="join-code">另一半的 8 位配對碼</label>
         <input id="join-code" class="code-input" maxlength="8" autocapitalize="characters" placeholder="LOVE5284" />
         <button id="join-button" class="secondary-button">加入情侶空間</button>
@@ -57,13 +53,13 @@
           <h1 id="space-title">我哋嘅二人空間 💞</h1>
           <p id="connection-status" class="status">正在連線…</p>
         </div>
-        <button id="notification-button" class="icon-button" aria-label="開啟通知">🔔</button>
+        <button id="sound-button" class="icon-button" aria-label="開關訊息提示聲">🔇</button>
       </header>
 
       <aside id="install-banner" class="install-banner hidden">
         <div>
           <strong>加入 iPhone 主畫面</strong>
-          <p>Safari 按分享，再選「加入主畫面」，之後先可開啟背景通知。</p>
+          <p>Safari 按分享，再選「加入主畫面」，之後開啟會更似普通 App。</p>
         </div>
         <button id="dismiss-install" class="text-button">知道</button>
       </aside>
@@ -78,7 +74,7 @@
       </aside>
 
       <nav class="tabs" aria-label="主要功能">
-        <button id="chat-tab" class="tab active">💬 聊天</button>
+        <button id="chat-tab" class="tab active">💬 聊天 <span id="unread-badge" class="unread-badge hidden">0</span></button>
         <button id="gift-tab" class="tab">🎁 送禮物</button>
       </nav>
 
@@ -96,10 +92,8 @@
       </section>
     </section>
   </main>
-
   <div id="toast" class="toast hidden" role="status"></div>
   <div id="busy-overlay" class="busy-overlay hidden"><div class="spinner"></div></div>
-
   <script type="module" src="./app.js"></script>
 </body>
 </html>
