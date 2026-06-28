@@ -5,13 +5,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function couplePath(coupleId) {
-      return /databases/$(database)/documents/couples/$(coupleId);
-    }
-
     function isCoupleMember(coupleId) {
       return signedIn()
-        && request.auth.uid in get(couplePath(coupleId)).data.members;
+        && request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
     }
 
     match /users/{userId} {
@@ -29,8 +25,8 @@ service cloud.firestore {
       allow delete: if signedIn() && (
         resource.data.ownerUid == request.auth.uid
         || (
-          getAfter(couplePath(resource.data.coupleId)).data.members.size() == 2
-          && request.auth.uid in getAfter(couplePath(resource.data.coupleId)).data.members
+          getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members.size() == 2
+          && request.auth.uid in getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members
         )
       );
       allow update: if false;
