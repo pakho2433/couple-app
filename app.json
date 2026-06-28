@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Couple Space",
+    "slug": "couple-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "couplespace",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pakho2433.couplespace"
+    },
+    "android": {
+      "package": "com.pakho2433.couplespace"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "enableBackgroundRemoteNotifications": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
