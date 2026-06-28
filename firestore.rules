@@ -78,22 +78,26 @@ service cloud.firestore {
           && request.resource.data.createdAt == request.time
           && (
             (
-              request.resource.data.type == 'text'
-              && request.resource.data.keys().hasOnly(['senderId', 'type', 'text', 'createdAt'])
+              request.resource.data.keys().hasOnly(['senderId', 'type', 'text', 'createdAt'])
+              && request.resource.data.type == 'text'
               && request.resource.data.text is string
               && request.resource.data.text.size() > 0
               && request.resource.data.text.size() <= 1000
             )
             || (
-              request.resource.data.type == 'gift'
-              && request.resource.data.keys().hasOnly(['senderId', 'type', 'giftEmoji', 'giftName', 'createdAt'])
+              request.resource.data.keys().hasOnly(['senderId', 'type', 'giftEmoji', 'giftName', 'createdAt'])
+              && request.resource.data.type == 'gift'
               && request.resource.data.giftEmoji is string
               && request.resource.data.giftName is string
               && request.resource.data.giftEmoji.size() <= 16
               && request.resource.data.giftName.size() <= 40
             )
             || (
-              request.resource.data.type in ['image', 'video', 'audio']
+              request.resource.data.keys().hasOnly([
+                'senderId', 'type', 'mediaUrl', 'storagePath', 'contentType',
+                'fileName', 'size', 'createdAt'
+              ])
+              && request.resource.data.type in ['image', 'video', 'audio']
               && request.resource.data.mediaUrl is string
               && request.resource.data.mediaUrl.size() > 0
               && request.resource.data.mediaUrl.size() <= 4096
@@ -106,13 +110,13 @@ service cloud.firestore {
               && request.resource.data.size is int
               && request.resource.data.size > 0
               && validMediaType(request.resource.data)
-              && request.resource.data.keys().hasOnly([
-                'senderId', 'type', 'mediaUrl', 'storagePath', 'contentType',
-                'fileName', 'size', 'createdAt'
-              ])
             )
             || (
-              request.resource.data.type in ['image', 'audio']
+              request.resource.data.keys().hasOnly([
+                'senderId', 'type', 'mediaData', 'contentType',
+                'fileName', 'size', 'createdAt'
+              ])
+              && request.resource.data.type in ['image', 'audio']
               && request.resource.data.mediaData is string
               && request.resource.data.mediaData.size() > 0
               && request.resource.data.mediaData.size() <= 780000
@@ -124,10 +128,6 @@ service cloud.firestore {
               && request.resource.data.size > 0
               && request.resource.data.size <= 560 * 1024
               && validMediaType(request.resource.data)
-              && request.resource.data.keys().hasOnly([
-                'senderId', 'type', 'mediaData', 'contentType',
-                'fileName', 'size', 'createdAt'
-              ])
             )
           );
         allow update, delete: if false;
