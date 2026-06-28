@@ -1,11 +1,10 @@
 export const firebaseConfig = {
-  apiKey: '__FIREBASE_API_KEY__',
-  authDomain: '__FIREBASE_AUTH_DOMAIN__',
-  projectId: '__FIREBASE_PROJECT_ID__',
-  storageBucket: '__FIREBASE_STORAGE_BUCKET__',
-  messagingSenderId: '__FIREBASE_MESSAGING_SENDER_ID__',
-  appId: '__FIREBASE_APP_ID__',
+  apiKey: 'AIzaSyBrtUm0z0ziUxWqx40_FaMdblhlcoeXPmw',
+  authDomain: 'couple-app-852c2.firebaseapp.com',
+  projectId: 'couple-app-852c2',
+  storageBucket: 'couple-app-852c2.firebasestorage.app',
+  messagingSenderId: '112711337609',
+  appId: '1:112711337609:web:c4425295b0da1a62dae858',
 };
 
-export const vapidKey = '__FIREBASE_VAPID_KEY__';
 export const publicAppUrl = 'https://pakho2433.github.io/couple-app/';
