@@ -4,7 +4,7 @@ const $ = CS.$;
 const { perform, showToast, updateComposerState } = CS.ui;
 
 const MAX_STORAGE_AUDIO_BYTES = 12 * 1024 * 1024;
-const MAX_RECORDING_SECONDS = 60;
+const MAX_RECORDING_SECONDS = 30;
 
 let recorder = null;
 let recorderStream = null;
@@ -122,7 +122,7 @@ async function startRecording() {
     if (elapsed >= MAX_RECORDING_SECONDS && isRecording()) {
       sendAfterStop = true;
       activeRecorder.stop();
-      showToast('錄音已達 1 分鐘，正在傳送。');
+      showToast('錄音已達 30 秒，正在傳送。');
     }
   }, 500);
 }
