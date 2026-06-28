@@ -1,5 +1,4 @@
 const CS = globalThis.CoupleSpace;
-const $ = CS.$;
 const { perform, showToast } = CS.ui;
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -49,25 +48,28 @@ function canvasToBlob(canvas, quality) {
 
 async function compressImage(file) {
   const image = await loadImage(file);
-  const maxDimension = 1280;
-  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d', { alpha: false });
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, width, height);
-  context.drawImage(image, 0, 0, width, height);
-
   let smallest = null;
-  for (const quality of [0.78, 0.68, 0.58, 0.48, 0.38]) {
-    const blob = await canvasToBlob(canvas, quality);
-    if (!blob) continue;
-    smallest = blob;
-    if (blob.size <= CS.media.MAX_INLINE_BLOB_BYTES) break;
+
+  for (const maxDimension of [1280, 1024, 800, 640]) {
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { alpha: false });
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    for (const quality of [0.78, 0.66, 0.54, 0.42, 0.32]) {
+      const blob = await canvasToBlob(canvas, quality);
+      if (!blob) continue;
+      if (!smallest || blob.size < smallest.size) smallest = blob;
+      if (blob.size <= CS.media.MAX_INLINE_BLOB_BYTES) return blob;
+    }
   }
+
   if (!smallest) throw new Error('圖片壓縮失敗，請選擇另一張圖片。');
   return smallest;
 }
