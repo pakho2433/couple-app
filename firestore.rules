@@ -1,33 +1,79 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function roomMember(roomId) {
+      return signedIn() && request.auth.uid in get(/databases/$(database)/documents/couples/$(roomId)).data.members;
+    }
+    function validMedia(d) {
+      return (d.type == 'image' && d.contentType.matches('image/.*') && d.size <= 12582912)
+        || (d.type == 'video' && d.contentType.matches('video/.*') && d.size <= 52428800)
+        || (d.type == 'audio' && d.contentType.matches('audio/.*') && d.size <= 12582912);
     }
 
-    function isCoupleMember(coupleId) {
-      return signedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
+    match /users/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
     }
 
-    function validMediaType(data) {
-      return (
-        data.type == 'image'
-        && data.contentType.matches('image/.*')
-        && data.size <= 12 * 1024 * 1024
-      ) || (
-        data.type == 'video'
-        && data.contentType.matches('video/.*')
-        && data.size <= 50 * 1024 * 1024
-      ) || (
-        data.type == 'audio'
-        && data.contentType.matches('audio/.*')
-        && data.size <= 12 * 1024 * 1024
-      );
+    match /friendCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.updatedAt == request.time;
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
-    match /users/{userId} {
-      allow read, create, update: if signedIn() && request.auth.uid == userId;
+    match /friendships/{id} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 2
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberNames is map
+        && request.resource.data.createdAt == request.time;
+      allow delete: if signedIn() && request.auth.uid in resource.data.members;
+      allow update: if false;
+    }
+
+    match /gameChallenges/{id} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow create: if signedIn()
+        && request.resource.data.gameType == 'tap10'
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants[0] != request.resource.data.participants[1]
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.scores is map
+        && request.resource.data.scores.size() == 0
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.completedAt == null;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status in ['open', 'waiting']
+        && !resource.data.scores.keys().hasAny([request.auth.uid])
+        && request.resource.data.gameType == resource.data.gameType
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.playerNames == resource.data.playerNames
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.scores.size() == resource.data.scores.size() + 1
+        && request.resource.data.scores.keys().hasOnly(resource.data.participants)
+        && request.resource.data.scores.diff(resource.data.scores).affectedKeys().hasOnly([request.auth.uid])
+        && request.resource.data.scores[request.auth.uid] is int
+        && request.resource.data.scores[request.auth.uid] >= 0
+        && request.resource.data.scores[request.auth.uid] <= 1000
+        && ((request.resource.data.scores.size() == 1 && request.resource.data.status == 'waiting' && request.resource.data.completedAt == null)
+          || (request.resource.data.scores.size() == 2 && request.resource.data.status == 'completed' && request.resource.data.completedAt == request.time));
       allow delete: if false;
     }
 
@@ -35,101 +81,54 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if false;
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['coupleId', 'ownerUid', 'createdAt'])
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow delete: if signedIn() && (
-        resource.data.ownerUid == request.auth.uid
-        || (
-          getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members.size() == 2
-          && request.auth.uid in getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members
-        )
-      );
+      allow delete: if signedIn() && (resource.data.ownerUid == request.auth.uid
+        || (getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members.size() == 2
+          && request.auth.uid in getAfter(/databases/$(database)/documents/couples/$(resource.data.coupleId)).data.members));
       allow update: if false;
     }
 
-    match /couples/{coupleId} {
+    match /couples/{roomId} {
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['members', 'createdBy', 'createdAt'])
         && request.resource.data.members.size() == 1
         && request.resource.data.createdBy == request.auth.uid
         && request.auth.uid in request.resource.data.members
         && request.resource.data.createdAt == request.time;
-
-      allow get: if signedIn() && (
-        request.auth.uid in resource.data.members
-        || resource.data.members.size() == 1
-      );
-      allow list: if false;
-
+      allow get: if signedIn() && (request.auth.uid in resource.data.members || resource.data.members.size() == 1);
+      allow list, delete: if false;
       allow update: if signedIn()
-        && resource.data.members.size() == 1
-        && request.resource.data.members.size() == 2
-        && request.resource.data.members.hasAll(resource.data.members)
-        && request.auth.uid in request.resource.data.members
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']);
-
-      allow delete: if false;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+        && ((resource.data.members.size() == 1
+          && request.resource.data.members.size() == 2
+          && request.resource.data.members.hasAll(resource.data.members)
+          && request.auth.uid in request.resource.data.members)
+        || (request.auth.uid in resource.data.members
+          && request.resource.data.members.size() == resource.data.members.size() - 1
+          && resource.data.members.hasAll(request.resource.data.members)
+          && !(request.auth.uid in request.resource.data.members)));
 
       match /messages/{messageId} {
-        allow read: if isCoupleMember(coupleId);
-        allow create: if isCoupleMember(coupleId)
+        allow read: if roomMember(roomId);
+        allow create: if roomMember(roomId)
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.createdAt == request.time
-          && (
-            (
-              request.resource.data.keys().hasOnly(['senderId', 'type', 'text', 'createdAt'])
-              && request.resource.data.type == 'text'
+          && ((request.resource.data.type == 'text'
               && request.resource.data.text is string
               && request.resource.data.text.size() > 0
-              && request.resource.data.text.size() <= 1000
-            )
-            || (
-              request.resource.data.keys().hasOnly(['senderId', 'type', 'giftEmoji', 'giftName', 'createdAt'])
-              && request.resource.data.type == 'gift'
+              && request.resource.data.text.size() <= 1000)
+            || (request.resource.data.type == 'gift'
               && request.resource.data.giftEmoji is string
-              && request.resource.data.giftName is string
-              && request.resource.data.giftEmoji.size() <= 16
-              && request.resource.data.giftName.size() <= 40
-            )
-            || (
-              request.resource.data.keys().hasOnly([
-                'senderId', 'type', 'mediaUrl', 'storagePath', 'contentType',
-                'fileName', 'size', 'createdAt'
-              ])
-              && request.resource.data.type in ['image', 'video', 'audio']
+              && request.resource.data.giftName is string)
+            || (request.resource.data.type in ['image', 'video', 'audio']
               && request.resource.data.mediaUrl is string
-              && request.resource.data.mediaUrl.size() > 0
-              && request.resource.data.mediaUrl.size() <= 4096
-              && request.resource.data.storagePath is string
-              && request.resource.data.storagePath.matches('couples/' + coupleId + '/' + request.auth.uid + '/.*')
-              && request.resource.data.contentType is string
-              && request.resource.data.fileName is string
-              && request.resource.data.fileName.size() > 0
-              && request.resource.data.fileName.size() <= 255
-              && request.resource.data.size is int
-              && request.resource.data.size > 0
-              && validMediaType(request.resource.data)
-            )
-            || (
-              request.resource.data.keys().hasOnly([
-                'senderId', 'type', 'mediaData', 'contentType',
-                'fileName', 'size', 'createdAt'
-              ])
-              && request.resource.data.type in ['image', 'audio']
+              && request.resource.data.storagePath.matches('couples/' + roomId + '/' + request.auth.uid + '/.*')
+              && validMedia(request.resource.data))
+            || (request.resource.data.type in ['image', 'audio']
               && request.resource.data.mediaData is string
-              && request.resource.data.mediaData.size() > 0
               && request.resource.data.mediaData.size() <= 780000
-              && request.resource.data.contentType is string
-              && request.resource.data.fileName is string
-              && request.resource.data.fileName.size() > 0
-              && request.resource.data.fileName.size() <= 255
-              && request.resource.data.size is int
-              && request.resource.data.size > 0
-              && request.resource.data.size <= 560 * 1024
-              && validMediaType(request.resource.data)
-            )
-          );
+              && request.resource.data.size <= 573440
+              && validMedia(request.resource.data)));
         allow update, delete: if false;
       }
     }
